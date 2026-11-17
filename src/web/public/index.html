@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Export Collection Console</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true">⇩</span>
+    <div>
+      <h1>Export Collection Console</h1>
+      <p class="sub">Quota reservations · create · download · ingest</p>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-view="tenant" role="tab">Tenant queue</button>
+    <button class="tab" data-view="operator" role="tab">Operator</button>
+    <button class="tab" data-view="source" role="tab">Local source</button>
+    <button class="tab" data-view="audit" role="tab">Audit</button>
+  </nav>
+  <div class="clock"><span id="clock">–</span><span class="dot" id="live-dot" title="Live refresh"></span></div>
+</header>
+
+<main>
+  <section id="view-tenant" class="view active">
+    <div class="row gap wrap">
+      <label class="field">
+        <span>Tenant scope</span>
+        <select id="tenant-select"></select>
+      </label>
+      <form id="submit-form" class="field grow">
+        <span>New export</span>
+        <div class="inline">
+          <input id="job-name" placeholder="e.g. November invoices" maxlength="200" required>
+          <button type="submit" class="primary" id="submit-btn">Queue export</button>
+        </div>
+        <small class="hint">A client key is generated per submission, so a double-click submits once.</small>
+      </form>
+    </div>
+
+    <div class="grid-2">
+      <div class="card" id="quota-card"></div>
+      <div class="card" id="policy-card"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Your jobs</h2>
+        <span class="muted" id="jobs-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="jobs-table">
+          <thead>
+            <tr>
+              <th>Job</th><th>State</th><th>Queue</th><th>Expiry</th><th>Quota</th><th>Result</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="empty" id="jobs-empty">No exports yet. Queue one above.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><h2>Create queue</h2><span class="badge" id="create-queue-mode"></span></div>
+        <ol class="explain-list" id="create-queue"></ol>
+        <p class="empty" id="create-queue-empty">No queued creates.</p>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Download priority</h2><span class="badge">expiring first</span></div>
+        <ol class="explain-list" id="download-queue"></ol>
+        <p class="empty" id="download-queue-empty">Nothing ready to download.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-operator" class="view">
+    <div class="grid-2">
+      <div class="card" id="operator-quota"></div>
+      <div class="card" id="operator-policy"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Needs attention</h2>
+        <button id="audit-ledger-btn" class="ghost">Check ledger vs source</button>
+      </div>
+      <div id="ledger-report" class="report"></div>
+      <div class="table-wrap">
+        <table id="attention-table">
+          <thead><tr><th>Job</th><th>Tenant</th><th>State</th><th>Why</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="empty" id="attention-empty">Nothing needs a human right now.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>All tenants</h2><span class="muted">queue-wide view</span></div>
+      <div class="table-wrap">
+        <table id="tenants-table">
+          <thead><tr><th>Tenant</th><th>Queued</th><th>Ready</th><th>Uncertain</th><th>Ingested</th><th>Expired</th><th>Jobs</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><h2>Global create order</h2></div>
+        <ol class="explain-list" id="operator-create-queue"></ol>
+        <p class="empty" id="operator-create-empty">No queued creates.</p>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Global download order</h2></div>
+        <ol class="explain-list" id="operator-download-queue"></ol>
+        <p class="empty" id="operator-download-empty">Nothing ready.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-source" class="view">
+    <div class="card">
+      <div class="card-head">
+        <h2>Local source simulator</h2>
+        <span class="muted">No real website is contacted. These controls change how the mock source behaves.</span>
+      </div>
+      <div class="grid-2">
+        <div id="source-quota" class="report"></div>
+        <div id="source-faults"></div>
+      </div>
+      <h3>Simulator fault controls</h3>
+      <p class="hint">
+        Raising these lets you exercise the hard paths: a create that times out after being charged, a
+        request dropped before charging, and a download that fails mid-transfer.
+      </p>
+      <form id="fault-form" class="fault-grid"></form>
+      <h3>Source job index</h3>
+      <div class="table-wrap">
+        <table id="source-jobs">
+          <thead><tr><th>Remote id</th><th>Tenant</th><th>Name</th><th>Status</th><th>Created</th><th>Expires</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-audit" class="view">
+    <div class="card">
+      <div class="card-head">
+        <h2>Audit trail</h2>
+        <span class="badge" id="chain-status">checking chain…</span>
+      </div>
+      <p class="hint">Append-only, hash-chained. Every quota decision and operator action is recorded.</p>
+      <div class="table-wrap">
+        <table id="audit-table">
+          <thead><tr><th>When</th><th>Event</th><th>Actor</th><th>Tenant</th><th>Job</th><th>Detail</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<dialog id="resolve-dialog">
+  <form method="dialog" id="resolve-form">
+    <h2>Manual reconciliation</h2>
+    <p class="hint" id="resolve-context"></p>
+    <label class="field">
+      <span>Decision</span>
+      <select id="resolve-decision">
+        <option value="committed">Committed — the source charged quota; adopt the remote job</option>
+        <option value="released">Released — no quota was charged; return the allowance</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Remote id (only if adopting a known job)</span>
+      <input id="resolve-remote" placeholder="exp_…">
+    </label>
+    <label class="field">
+      <span>Note (required, recorded in the audit trail)</span>
+      <textarea id="resolve-note" rows="3" placeholder="What did you check, and what did you find?"></textarea>
+    </label>
+    <div class="dialog-actions">
+      <button value="cancel" class="ghost" formmethod="dialog">Cancel</button>
+      <button type="button" id="resolve-confirm" class="primary">Record decision</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="job-dialog">
+  <div class="dialog-body">
+    <div class="card-head"><h2 id="job-dialog-title">Job</h2><button class="ghost" id="job-dialog-close">Close</button></div>
+    <div id="job-dialog-body"></div>
+  </div>
+</dialog>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>
